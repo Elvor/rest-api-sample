@@ -8,9 +8,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * The simplest implementation. Doesn't support path variables.
+ * The simplest implementation based on map. Doesn't support path variables.
  */
-public class RequestDispatcherImpl implements RequestDispatcher {
+public class RequestDispatcherMapImpl implements RequestDispatcher {
 
     private Map<String, Map<HTTPMethod, Handler>> requestMap = new HashMap<>();
 

@@ -10,8 +10,10 @@ public class Account {
 
     private  Long id;
 
+    private String ownerName;
+
     /**
      * Money amount in cents.
      */
-    private Long money;
+    private volatile long money;
 }

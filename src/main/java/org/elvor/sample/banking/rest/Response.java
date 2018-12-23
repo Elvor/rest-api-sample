@@ -1,9 +1,11 @@
-package org.elvor.sample.banking.rest.dispatcher;
+package org.elvor.sample.banking.rest;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.elvor.sample.banking.rest.ResponseCode;
 
+/**
+ * A HTTP response library-independent representation.
+ */
 @RequiredArgsConstructor
 @Getter
 public

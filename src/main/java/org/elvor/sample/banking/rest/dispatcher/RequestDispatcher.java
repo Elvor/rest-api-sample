@@ -1,12 +1,13 @@
 package org.elvor.sample.banking.rest.dispatcher;
 
-import io.vertx.core.Handler;
-import io.vertx.core.http.HttpMethod;
-import io.vertx.core.http.HttpServerRequest;
+import org.elvor.sample.banking.rest.HTTPMethod;
 
-public interface RequestDispatcher extends Handler<HttpServerRequest> {
+/**
+ * A dispatcher for incoming requests.
+ */
+public interface RequestDispatcher {
 
-    void register(String path, HttpMethod method, Handler<HttpServerRequest> handler);
+    void register(String path, HTTPMethod method, Handler handler);
 
-    void handle(HttpServerRequest event);
+    Handler getHandler(String path, HTTPMethod httpMethod);
 }

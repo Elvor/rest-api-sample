@@ -2,15 +2,16 @@ package org.elvor.sample.banking;
 
 
 import lombok.Getter;
-import org.elvor.sample.banking.converter.Converter;
-import org.elvor.sample.banking.converter.ConverterImpl;
+import org.elvor.sample.banking.rest.converter.Converter;
+import org.elvor.sample.banking.rest.converter.JacksonConverterImpl;
 import org.elvor.sample.banking.repository.AccountRepository;
 import org.elvor.sample.banking.repository.AccountRepositoryMapImpl;
 import org.elvor.sample.banking.rest.controller.AccountController;
 import org.elvor.sample.banking.rest.dispatcher.RequestDispatcher;
-import org.elvor.sample.banking.rest.dispatcher.RequestDispatcherImpl;
-import org.elvor.sample.banking.rest.exception.ExceptionHandler;
-import org.elvor.sample.banking.rest.exception.ExceptionHandlerImpl;
+import org.elvor.sample.banking.rest.dispatcher.RequestDispatcherMapImpl;
+import org.elvor.sample.banking.rest.exception.ExceptionTranslator;
+import org.elvor.sample.banking.rest.exception.ExceptionTranslatorImpl;
+import org.elvor.sample.banking.rest.netty.LogicInboundHandlerAdapter;
 import org.elvor.sample.banking.service.AccountService;
 import org.elvor.sample.banking.service.AccountServiceImpl;
 
@@ -29,7 +30,9 @@ public class Context {
 
     private final RequestDispatcher requestDispatcher;
 
-    private final ExceptionHandler exceptionHandler;
+    private final LogicInboundHandlerAdapter logicInboundHandlerAdapter;
+
+    private final ExceptionTranslator exceptionTranslator;
 
     private final Converter converter;
 
@@ -38,10 +41,11 @@ public class Context {
     private Context() {
         accountRepository = new AccountRepositoryMapImpl();
         accountService = new AccountServiceImpl(accountRepository);
-        converter = new ConverterImpl();
-        exceptionHandler = new ExceptionHandlerImpl(converter);
-        requestDispatcher = new RequestDispatcherImpl(exceptionHandler);
+        converter = new JacksonConverterImpl();
+        exceptionTranslator = new ExceptionTranslatorImpl();
+        requestDispatcher = new RequestDispatcherMapImpl();
         accountController = new AccountController(requestDispatcher, accountService, converter);
+        logicInboundHandlerAdapter = new LogicInboundHandlerAdapter(exceptionTranslator, requestDispatcher);
         accountController.init();
     }
 }

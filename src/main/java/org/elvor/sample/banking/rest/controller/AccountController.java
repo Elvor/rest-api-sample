@@ -1,13 +1,22 @@
 package org.elvor.sample.banking.rest.controller;
 
-import io.vertx.core.http.HttpMethod;
-import io.vertx.core.http.HttpServerRequest;
-import org.elvor.sample.banking.converter.Converter;
+import org.elvor.sample.banking.rest.converter.Converter;
 import org.elvor.sample.banking.model.Account;
+import org.elvor.sample.banking.rest.HTTPMethod;
+import org.elvor.sample.banking.rest.ResponseCode;
+import org.elvor.sample.banking.rest.Request;
 import org.elvor.sample.banking.rest.dispatcher.RequestDispatcher;
+import org.elvor.sample.banking.rest.Response;
 import org.elvor.sample.banking.service.AccountService;
-import org.elvor.sample.banking.vo.TransferInfo;
+import org.elvor.sample.banking.service.vo.TransferInfo;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Controller for accounts.
+ */
 public class AccountController {
 
     private final RequestDispatcher requestDispatcher;
@@ -24,20 +33,40 @@ public class AccountController {
     }
 
     public void init() {
-        requestDispatcher.register("/register", HttpMethod.POST, this::register);
-        requestDispatcher.register("/transfer", HttpMethod.POST, this::transfer);
+        requestDispatcher.register("/", HTTPMethod.POST, this::register);
+        requestDispatcher.register("/transfer", HTTPMethod.POST, this::transfer);
+        requestDispatcher.register("/", HTTPMethod.GET, this::fetch);
+        requestDispatcher.register("/", HTTPMethod.DELETE, this::delete);
     }
 
-    private void register(final HttpServerRequest request) {
+    private Response delete(final Request request) {
+        accountService.deleteAll(extractIds(request));
+        return converter.toResponse(null, ResponseCode.NO_CONTENT);
+    }
+
+    private Response fetch(final Request request) {
+        return converter.toResponse(accountService.findAll(extractIds(request)));
+    }
+
+    private List<Long> extractIds(final Request request) {
+        final List<String> ids = request.getParameters().get("id");
+        if (ids == null) {
+            return Collections.emptyList();
+        }
+        return ids.stream()
+                .map(Long::valueOf)
+                .collect(Collectors.toList());
+    }
+
+    private Response register(final Request request) {
         final Account account = converter.fromRequest(request, Account.class);
         final Account created = accountService.create(account);
-        request.response().setStatusCode(201);
-        converter.toResponse(request.response(), created);
+        return converter.toResponse(created, ResponseCode.CREATED);
     }
 
-    private void transfer(final HttpServerRequest request) {
+    private Response transfer(final Request request) {
         final TransferInfo transferInfo = converter.fromRequest(request, TransferInfo.class);
-        accountService.transfer(transferInfo);
-        converter.toResponse(request.response(), transferInfo);
+        final TransferInfo result = accountService.transfer(transferInfo);
+        return converter.toResponse(result);
     }
 }

@@ -3,16 +3,20 @@ package org.elvor.sample;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.elvor.sample.banking.App;
 import org.elvor.sample.banking.model.Account;
 import org.elvor.sample.banking.service.vo.TransferInfo;
 import org.junit.Assert;
@@ -23,16 +27,43 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
-public class ApiTest {
+@Slf4j
+public class ApiIT {
 
     private static final String URL = "http://localhost:8080/";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private final Object lock = new Object();
+
+
     @Test
-    public void testAll() throws IOException, ClassNotFoundException {
+    public void test() throws IOException, ClassNotFoundException {
+
+        final Thread thread = new Thread(() -> {
+            new App().run(() -> {
+                synchronized (lock) {
+                    lock.notifyAll();
+                }
+            });
+        });
+        thread.start();
+        System.out.println("test");
+        synchronized (lock) {
+            try {
+                lock.wait();
+            } catch (InterruptedException e) {
+                thread.interrupt();
+            }
+            testAll();
+            thread.interrupt();
+        }
+    }
+
+    private void testAll() throws IOException, ClassNotFoundException {
 
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
 
@@ -73,13 +104,14 @@ public class ApiTest {
         request.setEntity(new StringEntity(objectMapper.writeValueAsString(account)));
         request.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
 
-        final HttpResponse response = httpClient.execute(request);
-
-        Assert.assertEquals(201, response.getStatusLine().getStatusCode());
+        execute(httpClient, request, response -> {
+            Assert.assertEquals(HttpStatus.SC_CREATED, response.getStatusLine().getStatusCode());
+            return null;
+        });
     }
 
     private Long testGet(final HttpClient httpClient, final String ownerName,
-                         final long money) throws IOException, ClassNotFoundException {
+                         final long money) throws IOException {
         return testGet(
                 httpClient,
                 account -> {
@@ -104,32 +136,35 @@ public class ApiTest {
 
 
     private Long testGet(final HttpClient httpClient,
-                         final Predicate<Account> predicate, final boolean deleted) throws IOException, ClassNotFoundException {
+                         final Predicate<Account> predicate, final boolean deleted) throws IOException {
         final HttpGet request = new HttpGet(URL);
 
 
-        final HttpResponse response = httpClient.execute(request);
+        return execute(httpClient, request, response -> {
+            Assert.assertEquals(HttpStatus.SC_OK, response.getStatusLine().getStatusCode());
 
+            Long id = null;
 
-        Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-
-        final Class<?> clz = Class.forName(Account.class.getCanonicalName());
-        final JavaType type = objectMapper.getTypeFactory().constructCollectionType(List.class, clz);
-        final List<Account> list = objectMapper.readValue(getResponseContent(response), type);
-
-        Long id = null;
-        for (Account account : list) {
-            if (predicate.test(account)) {
-                id = account.getId();
+            try {
+                final Class<?> clz = Class.forName(Account.class.getCanonicalName());
+                final JavaType type = objectMapper.getTypeFactory().constructCollectionType(List.class, clz);
+                final List<Account> list = objectMapper.readValue(getResponseContent(response), type);
+                for (Account account : list) {
+                    if (predicate.test(account)) {
+                        id = account.getId();
+                    }
+                }
+            } catch (ClassNotFoundException | IOException e) {
+                Assert.fail("Wrong test configuration");
             }
-        }
-        if (deleted && id != null) {
-            Assert.fail("Entity wasn't deleted");
-        }
-        if (!deleted && id == null) {
-            Assert.fail("Entity wasn't created");
-        }
-        return id;
+            if (deleted && id != null) {
+                Assert.fail("Entity wasn't deleted");
+            }
+            if (!deleted && id == null) {
+                Assert.fail("Entity wasn't created");
+            }
+            return id;
+        });
     }
 
     private void testTransfer(final HttpClient client, final long from, final long to,
@@ -144,10 +179,10 @@ public class ApiTest {
         request.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
 
 
-        final HttpResponse response = client.execute(request);
-
-
-        Assert.assertEquals(200, response.getStatusLine().getStatusCode());
+        execute(client, request, response -> {
+            Assert.assertEquals(HttpStatus.SC_OK, response.getStatusLine().getStatusCode());
+            return null;
+        });
     }
 
     private String getResponseContent(final HttpResponse response) throws IOException {
@@ -160,10 +195,23 @@ public class ApiTest {
     private void testDelete(final HttpClient client, final long id) throws IOException {
         final HttpDelete request = new HttpDelete(URL + "?id=" + id);
 
+        execute(client, request, response -> {
+            Assert.assertEquals(HttpStatus.SC_NO_CONTENT, response.getStatusLine().getStatusCode());
+            return null;
+        });
+    }
 
-        final HttpResponse response = client.execute(request);
-
-
-        Assert.assertEquals(204, response.getStatusLine().getStatusCode());
+    private <T> T execute(final HttpClient client, final HttpUriRequest request,
+                          final Function<HttpResponse, T> call) throws IOException {
+        HttpResponse response = null;
+        try {
+            response = client.execute(request);
+            return call.apply(response);
+        }
+        finally {
+            if (response != null && response.getEntity() != null && response.getEntity().getContent() != null) {
+                response.getEntity().getContent().close();
+            }
+        }
     }
 }

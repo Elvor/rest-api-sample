@@ -11,14 +11,14 @@ import org.elvor.sample.banking.rest.Response;
 import java.io.IOException;
 
 /**
- * Jackson base inplementation of {@link Converter}.
+ * Jackson bases implementation of {@link Converter}.
  */
-public class ConverterImpl implements Converter {
+public class JacksonConverterImpl implements Converter {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public <T> T fromRequest(final Request request, Class<T> resultClass) {
+    public <T> T fromRequest(final Request request, final Class<T> resultClass) {
         if (request.getData() == null) {
             return null;
         }

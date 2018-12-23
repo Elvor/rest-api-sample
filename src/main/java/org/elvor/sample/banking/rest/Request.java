@@ -1,4 +1,4 @@
-package org.elvor.sample.banking.rest.dispatcher;
+package org.elvor.sample.banking.rest;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -6,6 +6,9 @@ import lombok.RequiredArgsConstructor;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * A HTTP request library-independent representation.
+ */
 @RequiredArgsConstructor
 @Getter
 public

@@ -1,33 +1,41 @@
 package org.elvor.sample.banking.rest.exception;
 
-import org.elvor.sample.banking.converter.Converter;
+import lombok.extern.slf4j.Slf4j;
 import org.elvor.sample.banking.exception.ConflictException;
 import org.elvor.sample.banking.exception.NotFoundException;
 import org.elvor.sample.banking.exception.ValidationException;
-import org.elvor.sample.banking.rest.dispatcher.RequestDispatcher;
+import org.elvor.sample.banking.rest.ResponseCode;
+import org.elvor.sample.banking.rest.Response;
 
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * An implementation of {@link ExceptionTranslator}.
+ */
+@Slf4j
 public class ExceptionTranslatorImpl implements ExceptionTranslator {
 
-    //TODO move to properties.
-    private final Map<Class<? extends Throwable>, String> codeMap = new HashMap<>();
-    private final Converter converter;
+    private static final String MESSAGE_FORMAT = "{\"message\": \"%s\"}";
 
-    public ExceptionTranslatorImpl(final Converter converter) {
-        this.converter = converter;
-        codeMap.put(NotFoundException.class, "404");
-        codeMap.put(ConflictException.class, "409");
-        codeMap.put(ValidationException.class, "400");
+    private final Map<Class<? extends Throwable>, ResponseCode> codeMap = new HashMap<>();
+
+    public ExceptionTranslatorImpl() {
+        codeMap.put(NotFoundException.class, ResponseCode.NOT_FOUND);
+        codeMap.put(ConflictException.class, ResponseCode.CONFLICT);
+        codeMap.put(ValidationException.class, ResponseCode.BAD_REQUEST);
     }
 
     @Override
-    public RequestDispatcher.Handler.Response handle(final Throwable throwable) {
-
+    public Response translate(final Throwable throwable) {
+        log.error(throwable.getMessage(), throwable);
+        return new Response(
+                getCode(throwable.getClass()),
+                String.format(MESSAGE_FORMAT, throwable.getMessage().replace("\"", "\\\""))
+        );
     }
 
-    private String getCode(final Class<? extends Throwable> exceptionClass) {
-        return codeMap.getOrDefault(exceptionClass, "500");
+    private ResponseCode getCode(final Class<? extends Throwable> exceptionClass) {
+        return codeMap.getOrDefault(exceptionClass, ResponseCode.SERVER_ERROR);
     }
 }

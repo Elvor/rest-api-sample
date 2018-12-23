@@ -1,5 +1,8 @@
 package org.elvor.sample.banking.exception;
 
+/**
+ * Thrown if requested entity wasn't found.
+ */
 public class NotFoundException extends RuntimeException {
 
     public NotFoundException(final String message, final Throwable cause) {
