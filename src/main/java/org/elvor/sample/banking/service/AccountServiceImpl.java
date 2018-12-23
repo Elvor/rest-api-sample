@@ -19,7 +19,7 @@ public class AccountServiceImpl implements AccountService {
     private final AccountRepository accountRepository;
 
     @Override
-    public Account create(final Account account) {
+    public synchronized Account create(final Account account) {
         if (account.getId() != null) {
             throw new ValidationException("Creating account must not contain id");
         }
