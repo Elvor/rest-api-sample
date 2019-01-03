@@ -1,9 +1,13 @@
-package org.elvor.sample.banking.rest.dispatcher;
+package org.elvor.sample.banking.rest.dispatcher.impl;
 
 import org.elvor.sample.banking.exception.InitializationException;
+import org.elvor.sample.banking.exception.MethodNotAllowedException;
 import org.elvor.sample.banking.exception.NotFoundException;
 import org.elvor.sample.banking.rest.HTTPMethod;
+import org.elvor.sample.banking.rest.dispatcher.Handler;
+import org.elvor.sample.banking.rest.dispatcher.RequestDispatcher;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -36,19 +40,15 @@ public class RequestDispatcherMapImpl implements RequestDispatcher {
         ));
     }
 
-    private RuntimeException createNotFoundException(final String path, final HTTPMethod method) {
-        return new NotFoundException(String.format("Not found %s %s", method.getName(), path));
-    }
-
-    public Handler getHandler(final String path, final HTTPMethod method) {
+    public Result getHandler(final String path, final HTTPMethod method) {
         final Map<HTTPMethod, Handler> methodMap = requestMap.get(path);
         if (methodMap == null) {
-            throw createNotFoundException(path, method);
+            throw new NotFoundException(String.format("Not found %s %s", method.getName(), path));
         }
         methodMap.computeIfAbsent(method, v -> {
-            throw createNotFoundException(path, method);
+            throw new MethodNotAllowedException(methodMap.keySet());
         });
-        return methodMap.get(method);
+        return new Result(methodMap.get(method), Collections.emptyMap());
     }
 
 

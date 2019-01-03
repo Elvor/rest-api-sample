@@ -48,7 +48,7 @@ public class App {
             });
             f.channel().closeFuture().sync();
         } catch (InterruptedException e) {
-            log.error(e.getMessage(), e);
+            log.info("shutting down...");
         } finally {
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();

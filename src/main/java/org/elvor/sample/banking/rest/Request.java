@@ -19,4 +19,6 @@ class Request {
     private final Map<String, List<String>> parameters;
 
     private final Map<String, String> headers;
+
+    private final Map<String, String> pathVariables;
 }

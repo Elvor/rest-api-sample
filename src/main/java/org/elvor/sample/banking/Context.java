@@ -8,7 +8,7 @@ import org.elvor.sample.banking.repository.AccountRepository;
 import org.elvor.sample.banking.repository.AccountRepositoryMapImpl;
 import org.elvor.sample.banking.rest.controller.AccountController;
 import org.elvor.sample.banking.rest.dispatcher.RequestDispatcher;
-import org.elvor.sample.banking.rest.dispatcher.RequestDispatcherMapImpl;
+import org.elvor.sample.banking.rest.dispatcher.impl.RequestDispatcherTreeImpl;
 import org.elvor.sample.banking.rest.exception.ExceptionTranslator;
 import org.elvor.sample.banking.rest.exception.ExceptionTranslatorImpl;
 import org.elvor.sample.banking.rest.netty.LogicInboundHandlerAdapter;
@@ -43,7 +43,7 @@ public class Context {
         accountService = new AccountServiceImpl(accountRepository);
         converter = new JacksonConverterImpl();
         exceptionTranslator = new ExceptionTranslatorImpl();
-        requestDispatcher = new RequestDispatcherMapImpl();
+        requestDispatcher = new RequestDispatcherTreeImpl();
         accountController = new AccountController(requestDispatcher, accountService, converter);
         logicInboundHandlerAdapter = new LogicInboundHandlerAdapter(exceptionTranslator, requestDispatcher);
         accountController.init();

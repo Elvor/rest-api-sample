@@ -3,13 +3,14 @@ package org.elvor.sample.banking.repository;
 import org.elvor.sample.banking.model.Account;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A repository for {@link Account}.
  */
 public interface AccountRepository {
 
-    Account getOne(Long id);
+    Optional<Account> getOne(long id);
 
     Account save(Account account);
 
@@ -19,4 +20,6 @@ public interface AccountRepository {
     List<Account> getAll();
 
     void delete(List<Long> ids);
+
+    void delete(long id);
 }

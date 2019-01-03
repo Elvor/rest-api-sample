@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpHeaders;
+import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
@@ -26,7 +27,6 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -121,29 +121,30 @@ public class ApiIT {
                         return true;
                     }
                     return false;
-                },
-                false
+                }
         );
     }
 
     private Long testGetDeleted(final HttpClient httpClient, final long id) throws IOException, ClassNotFoundException {
-        return testGet(
-                httpClient,
-                account -> Objects.equals(id, account.getId()),
-                true
-        );
+        final HttpGet request = new HttpGet(URL + id);
+
+
+        return execute(httpClient, request, response -> {
+            Assert.assertEquals(HttpStatus.SC_NOT_FOUND, response.getStatusLine().getStatusCode());
+            return null;
+        });
     }
 
 
-    private Long testGet(final HttpClient httpClient,
-                         final Predicate<Account> predicate, final boolean deleted) throws IOException {
+    private Long testGet(
+            final HttpClient httpClient, final Predicate<Account> predicate) throws IOException {
         final HttpGet request = new HttpGet(URL);
 
 
         return execute(httpClient, request, response -> {
             Assert.assertEquals(HttpStatus.SC_OK, response.getStatusLine().getStatusCode());
 
-            Long id = null;
+            Long foundId = null;
 
             try {
                 final Class<?> clz = Class.forName(Account.class.getCanonicalName());
@@ -151,24 +152,21 @@ public class ApiIT {
                 final List<Account> list = objectMapper.readValue(getResponseContent(response), type);
                 for (Account account : list) {
                     if (predicate.test(account)) {
-                        id = account.getId();
+                        foundId = account.getId();
                     }
                 }
             } catch (ClassNotFoundException | IOException e) {
                 Assert.fail("Wrong test configuration");
             }
-            if (deleted && id != null) {
-                Assert.fail("Entity wasn't deleted");
-            }
-            if (!deleted && id == null) {
+            if (foundId == null) {
                 Assert.fail("Entity wasn't created");
             }
-            return id;
+            return foundId;
         });
     }
 
-    private void testTransfer(final HttpClient client, final long from, final long to,
-                              final long amount) throws IOException {
+    private void testTransfer(
+            final HttpClient client, final long from, final long to, final long amount) throws IOException {
         final TransferInfo transferInfo = new TransferInfo();
         transferInfo.setFrom(from);
         transferInfo.setTo(to);
@@ -193,7 +191,7 @@ public class ApiIT {
     }
 
     private void testDelete(final HttpClient client, final long id) throws IOException {
-        final HttpDelete request = new HttpDelete(URL + "?id=" + id);
+        final HttpDelete request = new HttpDelete(URL + "/" + id);
 
         execute(client, request, response -> {
             Assert.assertEquals(HttpStatus.SC_NO_CONTENT, response.getStatusLine().getStatusCode());
@@ -201,8 +199,9 @@ public class ApiIT {
         });
     }
 
-    private <T> T execute(final HttpClient client, final HttpUriRequest request,
-                          final Function<HttpResponse, T> call) throws IOException {
+    private <T> T execute(
+            final HttpClient client, final HttpUriRequest request,
+        final Function<HttpResponse, T> call) throws IOException {
         HttpResponse response = null;
         try {
             response = client.execute(request);

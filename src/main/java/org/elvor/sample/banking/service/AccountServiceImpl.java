@@ -9,6 +9,7 @@ import org.elvor.sample.banking.repository.AccountRepository;
 import org.elvor.sample.banking.service.vo.TransferInfo;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The simplest synchronized implementation of {@link AccountService}.
@@ -19,7 +20,7 @@ public class AccountServiceImpl implements AccountService {
     private final AccountRepository accountRepository;
 
     @Override
-    public synchronized Account create(final Account account) {
+    public Account create(final Account account) {
         if (account.getId() != null) {
             throw new ValidationException("Creating account must not contain id");
         }
@@ -48,11 +49,13 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public List<Account> findAll(final List<Long> ids) {
-        if (ids.isEmpty()) {
-            return accountRepository.getAll();
-        }
-        return accountRepository.getAll(ids);
+    public List<Account> findAll() {
+        return accountRepository.getAll();
+    }
+
+    @Override
+    public Optional<Account> find(final long id) {
+        return accountRepository.getOne(id);
     }
 
     @Override
@@ -60,11 +63,13 @@ public class AccountServiceImpl implements AccountService {
         accountRepository.delete(ids);
     }
 
+    @Override
+    public void delete(final long id) {
+        accountRepository.delete(id);
+    }
+
     private Account getAccountSafe(final Long id) {
-        final Account account = accountRepository.getOne(id);
-        if (account == null) {
-            throw new NotFoundException(String.format("Account with id %s doesn't exist", id));
-        }
-        return account;
+        return accountRepository.getOne(id)
+                .orElseThrow(() -> new NotFoundException(String.format("Account with id %s doesn't exist", id)));
     }
 }

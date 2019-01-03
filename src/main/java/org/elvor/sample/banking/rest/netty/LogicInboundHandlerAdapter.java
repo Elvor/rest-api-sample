@@ -46,12 +46,15 @@ public class LogicInboundHandlerAdapter extends ChannelInboundHandlerAdapter {
 
         final HTTPMethod method = HTTPMethod.valueOf(request.method().name());
         final String path = queryStringDecoder.path();
-        final Response response = requestDispatcher.getHandler(path, method)
-                .handle(convertRequest(request, queryStringDecoder));
+        final RequestDispatcher.Result result = requestDispatcher.getHandler(path, method);
+        final Request convertedRequest = convertRequest(request, queryStringDecoder, result.getPathVariables());
+        final Response response = result.getHandler().handle(convertedRequest);
         sendResponse(ctx, response);
     }
 
-    private Request convertRequest(final FullHttpRequest request, final QueryStringDecoder queryStringDecoder) {
+    private Request convertRequest(
+            final FullHttpRequest request, final QueryStringDecoder queryStringDecoder,
+            final Map<String, String> pathVariables) {
         final String body;
         if (request.method() == HttpMethod.POST || request.method() == HttpMethod.PUT) {
             final ByteBuf jsonBuf = request.content();
@@ -66,7 +69,7 @@ public class LogicInboundHandlerAdapter extends ChannelInboundHandlerAdapter {
                 ));
         final Map<String, String> headers = request.headers().entries().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        return new Request(body, parameters, headers);
+        return new Request(body, parameters, headers, pathVariables);
     }
 
     private List<String> splitParameterValues(final Collection<String> parameterValues) {
@@ -91,6 +94,11 @@ public class LogicInboundHandlerAdapter extends ChannelInboundHandlerAdapter {
         );
         httpResponse.headers().add(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON);
         httpResponse.headers().add(HttpHeaderNames.CONTENT_LENGTH, httpResponse.content().readableBytes());
+
+        //add custom headers
+        response.getHeaders().forEach((name, value) -> {
+            httpResponse.headers().add(name, value);
+        });
         ctx.writeAndFlush(httpResponse);
     }
 }

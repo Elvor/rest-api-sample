@@ -6,6 +6,7 @@ import org.elvor.sample.banking.model.Account;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -19,8 +20,8 @@ public class AccountRepositoryMapImpl implements AccountRepository {
     private ConcurrentHashMap<Long, Account> map = new ConcurrentHashMap<>();
 
     @Override
-    public Account getOne(final Long id) {
-        return map.get(id);
+    public Optional<Account> getOne(final long id) {
+        return Optional.ofNullable(map.get(id));
     }
 
     @Override
@@ -59,5 +60,10 @@ public class AccountRepositoryMapImpl implements AccountRepository {
         for (Long id : ids) {
             map.remove(id);
         }
+    }
+
+    @Override
+    public void delete(final long id) {
+        map.remove(id);
     }
 }
