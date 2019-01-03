@@ -1,5 +1,6 @@
 package org.elvor.sample.banking.rest.dispatcher.impl;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.elvor.sample.banking.exception.InitializationException;
 import org.elvor.sample.banking.exception.MethodNotAllowedException;
@@ -12,6 +13,7 @@ import org.elvor.sample.banking.rest.dispatcher.RequestDispatcher;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -31,9 +33,13 @@ public class RequestDispatcherTreeImpl implements RequestDispatcher {
     @Override
     public void register(final String path, final HTTPMethod method, final Handler handler) {
         final List<String> pathParts = extractPathParts(path);
+        final RequestRegistrationContext regContext = new RequestRegistrationContext(handler, path);
         Node node = root;
         for (String pathPart : pathParts) {
             final boolean isVariable = pathVariableHelper.isPathVariable(pathPart);
+            if (isVariable) {
+                regContext.pathVariablesNames.add(pathVariableHelper.extractPathVariableName(pathPart));
+            }
             final Node next = node.getChild(pathPart, isVariable);
             if (next == null) {
                 node = node.addChild(pathPart, isVariable);
@@ -41,19 +47,19 @@ public class RequestDispatcherTreeImpl implements RequestDispatcher {
                 node = next;
             }
         }
-        node.addHandler(method, handler);
+        node.addHandler(method, regContext);
 
     }
 
     @Override
     public Result getHandler(final String path, final HTTPMethod httpMethod) {
         final List<String> pathParts = extractPathParts(path);
-        final Map<String, String> params = new HashMap<>();
+        final List<String> variablesValues = new LinkedList<>();
         Node node = root;
         for (String pathPart : pathParts) {
-            node = node.getChildNullSafe(pathPart, params);
+            node = node.getChildNullSafe(pathPart, variablesValues);
         }
-        return new Result(node.getHandler(httpMethod), params);
+        return node.getHandlerData(httpMethod).toResult(variablesValues);
     }
 
     private List<String> extractPathParts(final String path) {
@@ -67,35 +73,35 @@ public class RequestDispatcherTreeImpl implements RequestDispatcher {
      */
     @RequiredArgsConstructor
     private class Node {
-        private final Map<HTTPMethod, Handler> handlers = new HashMap<>();
+        private final Map<HTTPMethod, HandlerData> handlers = new HashMap<>();
         private final String path;
         private final Node parent;
         private final Map<String, Node> children = new HashMap<>();
         private Node variable;
 
-        Node getChild(final String path, final boolean isVariable) {
+        Node getChild(final String pathPart, final boolean isVariable) {
             if (isVariable) {
                 return this.variable;
             }
-            return children.get(path);
+            return children.get(pathPart);
         }
 
-        Handler getHandler(final HTTPMethod method) {
-            final Handler handler = handlers.get(method);
-            if (handler == null) {
+        HandlerData getHandlerData(final HTTPMethod method) {
+            final HandlerData handlerData = handlers.get(method);
+            if (handlerData == null) {
                 throw new MethodNotAllowedException(handlers.keySet());
             }
-            return handler;
+            return handlerData;
         }
 
-        Node getChildNullSafe(final String pathPart, final Map<String, String> params) {
+        Node getChildNullSafe(final String pathPart, final List<String> variablesValues) {
             Node node = children.get(pathPart);
             if (node == null) {
                 if (variable == null) {
                     throw new NotFoundException("Route wasn't found");
                 }
                 node = variable;
-                params.put(variable.path, pathPart);
+                variablesValues.add(pathPart);
             }
             return node;
         }
@@ -103,23 +109,22 @@ public class RequestDispatcherTreeImpl implements RequestDispatcher {
         Node addChild(final String path, final boolean isVariable) {
             final Node node = new Node(path, this);
             if (isVariable) {
-                final String paramName = pathVariableHelper.extractPathVariableName(path);
-                variable = new Node(paramName, this);
+                variable = new Node("VARIABLE", this);
                 return variable;
             }
             children.put(path, node);
             return node;
         }
 
-        void addHandler(final HTTPMethod httpMethod, final Handler handler) {
+        void addHandler(final HTTPMethod httpMethod, final RequestRegistrationContext regContext) {
             if (handlers.get(httpMethod) != null) {
                 throw new InitializationException(String.format(
                         "method %s %s is already registered",
                         httpMethod.getName(),
-                        getFullPath()
+                        regContext.getPath()
                 ));
             }
-            handlers.put(httpMethod, handler);
+            handlers.put(httpMethod, regContext.toHandlerData());
         }
 
         String getFullPath() {
@@ -131,6 +136,45 @@ public class RequestDispatcherTreeImpl implements RequestDispatcher {
             }
             while (parent != null);
             return String.join("/", deque);
+        }
+    }
+
+    /**
+     * Context for registration process.
+     */
+    @RequiredArgsConstructor
+    private class RequestRegistrationContext {
+
+        private final Handler handler;
+
+        @Getter
+        private final String path;
+
+        private final List<String> pathVariablesNames = new LinkedList<>();
+
+        HandlerData toHandlerData() {
+            return new HandlerData(handler, pathVariablesNames);
+        }
+    }
+
+    /**
+     * Handler with all additional data.
+     */
+    @RequiredArgsConstructor
+    private class HandlerData {
+
+        private final Handler handler;
+
+        private final List<String> pathVariablesNames;
+
+        Result toResult(final List<String> pathVariableValues) {
+            final Map<String, String> pathVariables = new HashMap<>();
+            final Iterator<String> namesIterator = pathVariablesNames.iterator();
+            final Iterator<String> valuesIterator = pathVariableValues.iterator();
+            while (namesIterator.hasNext()) {
+                pathVariables.put(namesIterator.next(), valuesIterator.next());
+            }
+            return new Result(handler, pathVariables);
         }
     }
 }
